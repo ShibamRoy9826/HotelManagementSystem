@@ -211,6 +211,20 @@ def check_room(room_id:str):
 
     get_guests(room_id)
 
+def remove_guest_ui():
+    guest_id=input("Enter guest id:")
+    cur.execute("select name from guests where guest_id=?", (guest_id,))
+    row = cur.fetchone()
+    if not row:
+        c.print("[red]No such guest exists![/red]")
+        return
+    confirm = input(f"Delete '{row[0]}' (id {guest_id})? [y/n]: ").strip().lower()
+    if confirm == 'y':
+        remove_guest(guest_id)
+        c.print("[green]Deleted.[/green]")
+    else:
+        c.print("[yellow]Aborted.[/yellow]")
+
 def title(s): 
     c.print(f"[bold underline cyan] {s} [/bold underline cyan]")
 
@@ -229,9 +243,11 @@ def main_menu():
         5) Remove a guest from a room
         6) Update bill status
         7) Update stay for a guest
-        8) Calculate profit
-        9) Search by guest name
-        10) Search by guest ID
+        8) Update cost for a room
+        9) Calculate profit
+        10) Search by guest name
+        11) Search by guest ID
+        12) Check if a room is booked
         0) Quit
         """)
 
@@ -243,22 +259,37 @@ def main_menu():
             case '2':
                 all_guest_stats()
             case '3':
-                all_guest_stats()
+                ID=input("Enter guest ID:")
+                check_room(ID)
+
             case '4':
-                ui_delete_book()
+                print("TODO")
             case '5':
-                guest_id=input("Enter guest id:")
-                cur.execute("select name from guests where guest_id=?", (guest_id,))
-                row = cur.fetchone()
-                if not row:
-                    c.print("[red]No such guest exists![/red]")
-                    return
-                confirm = input(f"Delete '{row[0]}' (id {guest_id})? [y/n]: ").strip().lower()
-                if confirm == 'y':
-                    remove_guest(guest_id)
-                    c.print("[green]Deleted.[/green]")
-                else:
-                    c.print("[yellow]Aborted.[/yellow]")
+                remove_guest_ui()
+            case '6':
+                ID=input("Enter guest ID for guest who paid the bill:")
+                update_paid(ID)
+                c.print(f"[green]Updated guest {ID} 's status to paid!")
+            case '7':
+                ID=input("Enter guest ID:")
+                new_stay=input("Enter the new intended stay(in days):")
+                update_stay(ID,new_stay)
+                c.print(f"[green]Updated guest {ID} 's stay to {new_stay} days!")
+            case '8':
+                ID=input("Enter room ID:")
+                new_cost=input("Enter new cost for the room:")
+                update_cost(ID,new_cost)
+            case '9':
+                print("TODO")
+            
+            case '10':
+                search_guest_by_name()
+            case '11':
+                print("TODO")
+            case '12':
+                ID=input("Enter room ID:")
+                check_booked(ID)
+
             case '0':
                 c.print("[yellow]Bye![/yellow]")
                 break
