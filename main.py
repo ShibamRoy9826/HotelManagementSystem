@@ -50,7 +50,7 @@ def create_table():
             insert into rooms (room_id, num_guests, cost)
             values
             (?,0,5000)
-            """,(i,))
+            """,(i+1,))
         con.commit()
 
 
@@ -95,8 +95,7 @@ def all_guest_stats():
     print_table(output,title="Guests")
 
 
-def add_guest(room_id:str, guest_details:list): # guest_details is going to be a list of tuples 
-
+def add_guest(room_id:str, guest_details:list): 
     cur.execute("""
     select num_guests from rooms
     where room_id=?
@@ -112,13 +111,13 @@ def add_guest(room_id:str, guest_details:list): # guest_details is going to be a
 
     for guest in guest_details:
         cur.execute("""
-            insert into guests (room_id, name,age,gender,intended_stay,registered_on)
+            insert into guests (room_id, name,age,gender,paid_bill,intended_stay,registered_on)
             values
-            (?,?,?,?,?,?)
+            (?,?,?,?,?,?,?)
         """,(room_id,*guest))
 
     con.commit()
-    c.print(f"[green] {len(guest_details)} guests added to room {room_id}. [/green]")
+    c.print(f"[green] {len(guest_details)} guest(s) added to room {room_id}. [/green]")
    
 def remove_guest(guest_id:str):
     try:
@@ -128,11 +127,6 @@ def remove_guest(guest_id:str):
             set num_guests=num_guests-1
             where room_id=?
         """,(room_id,))
-
-        cur.execute("""
-            delete from guests
-            where guest_id=?
-        """,(guest_id,))
 
         cur.execute("""
             delete from guests
@@ -149,6 +143,7 @@ def update_paid(guest_id:str):
     set paid_bill=1
     where guest_id=?
     """,(guest_id,))
+    con.commit()
 
 def update_stay(guest_id:str,new_stay):
     cur.execute("""
@@ -156,32 +151,43 @@ def update_stay(guest_id:str,new_stay):
     set intended_stay=?
     where guest_id=?
     """,(new_stay,guest_id))
+    con.commit()
 
-def update_room_cost(room_id:str,new_cost:str):
+def update_cost(room_id:str,new_cost:str):
     cur.execute("""
     update rooms
     set cost=?
     where room_id=?
     """,(new_cost,room_id))
+    con.commit()
 
 def check_booked(room_id:str):
-    try:
-        num_guests=cur.execute("""
-        select num_guests from rooms
-        where room_id=?
-        """,(room_id,)).fetchone()[0]
-        if not int(num_guests):
-            c.print("[green]This room has not been booked yet[/green]")
-        else:
-            c.print("[red]This room has already been booked [/red]")
-    except KeyError:
+    num_guests=cur.execute("""
+    select num_guests from rooms
+    where room_id=?
+    """,(room_id,)).fetchone()
+
+    if num_guests==None:
         c.print(f"[red]Room {room_id} doesn't exist[/red]")
+        return
+
+    if not num_guests[0]:
+        c.print("[green]This room has not been booked yet[/green]")
+    else:
+        c.print("[red]This room has already been booked [/red]")
 
 def search_guest_by_name():
     q = input("Search guest name: ").strip()
     output = cur.execute("select * from guests where name like ?", (f"%{q}%",))
     if not output:
         c.print("[red]No guest with the provided name found![/red]")
+    print_table(output)
+
+def search_guest_by_id():
+    ID = input("Enter guest ID: ").strip()
+    output = cur.execute("select * from guests where guest_id==?", (ID,))
+    if not output:
+        c.print("[red]No guest with the provided ID found![/red]")
     print_table(output)
 
 def get_guests(room_id:str):
@@ -225,6 +231,74 @@ def remove_guest_ui():
     else:
         c.print("[yellow]Aborted.[/yellow]")
 
+def update_paid_ui():
+    ID=input("Enter guest ID for guest who paid the bill:")
+    update_paid(ID)
+    c.print(f"[green]Updated guest {ID} 's status to paid![/green]")
+
+def update_stay_ui():
+    ID=input("Enter guest ID:")
+    new_stay=input("Enter the new intended stay(in days):")
+    update_stay(ID,new_stay)
+    c.print(f"[green]Updated guest {ID} 's stay to {new_stay} days!")
+
+def update_cost_ui():
+    ID=input("Enter room ID:")
+    new_cost=input("Enter new cost for the room:")
+    update_cost(ID,new_cost)
+    c.print(f"[green]Updated room {ID} 's cost to {new_cost}!")
+
+def check_booked_ui():
+    ID=input("Enter room ID:")
+    check_booked(ID)
+
+def check_details_ui():
+    ID=input("Enter room ID:")
+    check_room(ID)
+
+def calculate_profit():
+    try:
+        total_profit= cur.execute("""
+            SELECT 
+                SUM(r.cost * g.intended_stay) AS total_profit
+            FROM guests g
+            JOIN rooms r
+            ON g.room_id = r.room_id
+         """).fetchone()[0]
+
+        already_paid= cur.execute("""
+            SELECT 
+                SUM(r.cost * g.intended_stay) AS already_paid
+            FROM guests g
+            JOIN rooms r
+            ON g.room_id = r.room_id
+            WHERE g.paid_bill=1
+         """).fetchone()[0]
+        c.print(f"[blue]Total Profit [/blue] : {total_profit}")
+        if already_paid:
+            c.print(f"[green]Already Paid [/green] : {already_paid}")
+            c.print(f"[red]To Be Paid [/red] : {int(total_profit) - int(already_paid)}")
+        else:
+            c.print(f"[green]Already Paid [/green] : No one paid yet:(")
+            c.print(f"[red]To Be Paid [/red] : {total_profit}")
+    except:
+        c.print("[red]No guests exist![/red]")
+
+
+def add_guest_ui():
+    room_id=input("Enter the room ID for the new guest:")
+    name=input("Name of the guest:")
+    age=input("Age of the guest:")
+    gender=input("Gender of the guest(M/F):").upper()
+    paid_bill=input("Whether they paid bill in advance or not(y/n):").lower()
+    intended_stay=input("How many days do they intend to stay? (in days):")
+
+    if name=="" or (not age.isdigit()) or (gender not in ["M","F"]) or (paid_bill not in ["y","n"]) or (not intended_stay.isdigit()):
+        c.print("[red]Invalid Data![/red]")
+    else:
+        paid_bill=True if paid_bill=="y" else False
+        add_guest(room_id,[(name,age,gender,paid_bill,intended_stay,datetime.date.today().isoformat())])
+
 def title(s): 
     c.print(f"[bold underline cyan] {s} [/bold underline cyan]")
 
@@ -259,37 +333,25 @@ def main_menu():
             case '2':
                 all_guest_stats()
             case '3':
-                ID=input("Enter guest ID:")
-                check_room(ID)
-
+                check_details_ui()
             case '4':
-                print("TODO")
+                add_guest_ui()
             case '5':
                 remove_guest_ui()
             case '6':
-                ID=input("Enter guest ID for guest who paid the bill:")
-                update_paid(ID)
-                c.print(f"[green]Updated guest {ID} 's status to paid!")
+                update_paid_ui()
             case '7':
-                ID=input("Enter guest ID:")
-                new_stay=input("Enter the new intended stay(in days):")
-                update_stay(ID,new_stay)
-                c.print(f"[green]Updated guest {ID} 's stay to {new_stay} days!")
+                update_stay_ui()
             case '8':
-                ID=input("Enter room ID:")
-                new_cost=input("Enter new cost for the room:")
-                update_cost(ID,new_cost)
+                update_cost_ui()
             case '9':
-                print("TODO")
-            
+                calculate_profit()
             case '10':
                 search_guest_by_name()
             case '11':
-                print("TODO")
+                search_guest_by_id()
             case '12':
-                ID=input("Enter room ID:")
-                check_booked(ID)
-
+                check_booked_ui()
             case '0':
                 c.print("[yellow]Bye![/yellow]")
                 break
@@ -301,7 +363,5 @@ def main_menu():
             pause()
 
 create_table()
-if db_was_missing:
-    add_data() 
 main_menu()
 
