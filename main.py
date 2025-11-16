@@ -5,9 +5,9 @@ import datetime
 from rich.console import Console
 from rich.table import Table
 
-db_was_missing = not os.path.exists("./data.db")
+db_was_missing = not os.path.exists("./hotel.db")
 
-con = sqlite3.connect("data.db")
+con = sqlite3.connect("hotel.db")
 cur = con.cursor()
 c=Console()
 
